@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSR Data Application</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+            user-select: none; /* Disable text selection */
+        }
+
+        h1 {
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        form {
+            margin-bottom: 20px;
+            color: #00ff00;
+        }
+
+        input[type="text"], input[type="file"], button, input[type="search"], input[type="password"] {
+            padding: 10px;
+            margin: 5px;
+            background-color: #000;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+        }
+
+        input[type="text"]:focus, input[type="file"]:focus, input[type="search"]:focus, button:hover {
+            outline: none;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+        }
+
+        th {
+            background-color: #001a00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+
+        td a {
+            color: #00ff00;
+            text-decoration: none;
+        }
+
+        td a:hover {
+            text-shadow: 0 0 5px #00ff00;
+        }
+
+        button {
+            background-color: #001a00;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            cursor: pointer;
+            text-shadow: 0 0 5px #00ff00;
+        }
+
+        button:hover {
+            background-color: #00ff00;
+            color: #000;
+        }
+
+        input[type="file"] {
+            border: none;
+        }
+
+        /* Glitchy Effect for Text */
+        @keyframes glitch {
+            0% {
+                text-shadow: 2px 0 red, -2px 0 blue;
+            }
+            20% {
+                text-shadow: -2px 0 red, 2px 0 blue;
+            }
+            40% {
+                text-shadow: 2px 0 red, -2px 0 blue;
+            }
+            60% {
+                text-shadow: -2px 0 red, 2px 0 blue;
+            }
+            80% {
+                text-shadow: 2px 0 red, -2px 0 blue;
+            }
+            100% {
+                text-shadow: -2px 0 red, 2px 0 blue;
+            }
+        }
+
+        h1 {
+            animation: glitch 2s infinite;
+        }
+        footer {
+            margin-top: 450px;
+        }
+    </style>
+</head>
+<body>
+
+<center><h1>PSR Data Application</h1></center>
+
+<form id="crudForm">
+    <input type="hidden" id="updateIndex">
+    
+    <label for="staffName">Staff Name:</label>
+    <input type="text" id="staffName" placeholder="Enter staff name" required>
+    
+    <label for="college">College:</label>
+    <input type="text" id="college" placeholder="Enter college name" required>
+    
+    <label for="department">Department:</label>
+    <input type="text" id="department" placeholder="Enter department" required>
+    
+    <label for="resume">Education:</label>
+    <input type="file" id="resume" accept=".pdf, .doc, .docx">
+    
+    <label for="comments">Comments:</label>
+    <input type="text" id="comments" placeholder="Enter comments">
+    
+    <button type="submit" id="submitButton">Add Staff</button>
+</form>
+
+<input type="search" id="search" placeholder="Search by name" onkeyup="searchItems()">
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Staff Name</th>
+            <th>College</th>
+            <th>Department</th>
+            <th>Education Data</th>
+            <th>Comments</th>
+            <th>Good</th>
+            <th>Bad</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="itemList">
+    </tbody>
+</table>
+
+<script>
+    let items = JSON.parse(localStorage.getItem('items')) || [];
+    let editIndex = null;
+    const DELETE_PASSWORD = '1234'; // Password for deletion
+
+    const form = document.getElementById('crudForm');
+    const itemList = document.getElementById('itemList');
+    const staffNameInput = document.getElementById('staffName');
+    const collegeInput = document.getElementById('college');
+    const departmentInput = document.getElementById('department');
+    const resumeInput = document.getElementById('resume');
+    const commentsInput = document.getElementById('comments');
+    const submitButton = document.getElementById('submitButton');
+    const searchInput = document.getElementById('search');
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        
+        const staffName = staffNameInput.value.trim();
+        const college = collegeInput.value.trim();
+        const department = departmentInput.value.trim();
+        const comments = commentsInput.value.trim();
+        const resume = resumeInput.files[0];
+
+        if (!staffName || !college || !department) return;
+
+        if (editIndex !== null) {
+            // Update operation
+            items[editIndex] = {
+                staffName,
+                college,
+                department,
+                comments,
+                resume: resume ? URL.createObjectURL(resume) : items[editIndex].resume,
+                goodCount: items[editIndex].goodCount,
+                badCount: items[editIndex].badCount
+            };
+            editIndex = null;
+            submitButton.textContent = 'Add Staff';
+        } else {
+            // Create operation
+            items.push({
+                staffName,
+                college,
+                department,
+                comments,
+                resume: resume ? URL.createObjectURL(resume) : '',
+                goodCount: 0,
+                badCount: 0
+            });
+        }
+
+        localStorage.setItem('items', JSON.stringify(items)); // Save to Local Storage
+        renderItems();
+        form.reset();
+    });
+
+    function renderItems() {
+        itemList.innerHTML = '';
+        items.forEach((item, index) => {
+            itemList.innerHTML += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${item.staffName}</td>
+                    <td>${item.college}</td>
+                    <td>${item.department}</td>
+                    <td>${item.resume ? '<a href="' + item.resume + '" target="_blank">View Resume</a>' : 'N/A'}</td>
+                    <td>${item.comments}</td>
+                    <td>
+                        <button onclick="incrementGood(${index})">Good (${item.goodCount})</button>
+                    </td>
+                    <td>
+                        <button onclick="incrementBad(${index})">Bad (${item.badCount})</button>
+                    </td>
+                    <td>
+                        <button onclick="editItem(${index})">Edit</button>
+                        <button onclick="confirmDelete(${index})">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function incrementGood(index) {
+        items[index].goodCount++;
+        localStorage.setItem('items', JSON.stringify(items)); // Save to Local Storage
+        renderItems();
+    }
+
+    function incrementBad(index) {
+        items[index].badCount++;
+        localStorage.setItem('items', JSON.stringify(items)); // Save to Local Storage
+        renderItems();
+    }
+
+    function editItem(index) {
+        const item = items[index];
+        staffNameInput.value = item.staffName;
+        collegeInput.value = item.college;
+        departmentInput.value = item.department;
+        commentsInput.value = item.comments;
+        resumeInput.value = ''; // Reset the file input
+        editIndex = index;
+        submitButton.textContent = 'Update Staff';
+    }
+
+    function confirmDelete(index) {
+        const password = prompt('Enter password to confirm deletion:');
+        if (password === DELETE_PASSWORD) {
+            deleteItem(index);
+        } else {
+            alert('Incorrect password. Unable to delete.');
+        }
+    }
+
+    function deleteItem(index) {
+        items.splice(index, 1);
+        localStorage.setItem('items', JSON.stringify(items)); // Save to Local Storage
+        renderItems();
+    }
+
+    function searchItems() {
+        const query = searchInput.value.toLowerCase();
+        const filteredItems = items.filter(item => item.staffName.toLowerCase().includes(query));
+        renderFilteredItems(filteredItems);
+    }
+
+    function renderFilteredItems(filteredItems) {
+        itemList.innerHTML = '';
+        filteredItems.forEach((item, index) => {
+            itemList.innerHTML += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${item.staffName}</td>
+                    <td>${item.college}</td>
+                    <td>${item.department}</td>
+                    <td>${item.resume ? '<a href="' + item.resume + '" target="_blank">View Resume</a>' : 'N/A'}</td>
+                    <td>${item.comments}</td>
+                    <td>
+                        <button onclick="incrementGood(${index})">Good (${item.goodCount})</button>
+                    </td>
+                    <td>
+                        <button onclick="incrementBad(${index})">Bad (${item.badCount})</button>
+                    </td>
+                    <td>
+                        <button onclick="editItem(${index})">Edit</button>
+                        <button onclick="confirmDelete(${index})">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // Prevent right-click and certain key combinations
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', e => {
+        // Disable Ctrl+U, Ctrl+S, Ctrl+P, and F12
+        if ((e.ctrlKey && (e.key === 'u' || e.key === 's' || e.key === 'p')) || e.key === 'F12') {
+            e.preventDefault();
+        }
+    });
+
+    // Detect if developer tools are opened
+    let devtoolsOpen = false;
+    const threshold = 160;
+    window.addEventListener('resize', () => {
+        if (window.innerHeight < threshold) {
+            devtoolsOpen = true;
+            alert('Developer tools detected!');
+        }
+    });
+
+    // Initial render
+    renderItems();
+</script>
+<footer>
+    <center>
+        <h3>@Sk devil 2024</h3>
+    </center>
+</footer>
+</body>
+</html>
